@@ -41,6 +41,14 @@ async function run() {
     res.send(result);
    })
 
+   app.get('/search', async(req, res)=>{
+    const search_text = req.query.search;
+    const result = await cropsCollection.find({name: {$regex: search_text, $options: 'i'}}).toArray();
+    res.send(result);
+   })
+
+   
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
