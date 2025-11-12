@@ -29,6 +29,7 @@ async function run() {
 
     const db = client.db('fasalbridge_db');
     const cropsCollection = db.collection('crops');
+    const usersCollection = db.collection('users');
    app.get('/crops', async(req, res)=>{
     const cursor = cropsCollection.find();
     const result = await cursor.toArray();
@@ -36,7 +37,7 @@ async function run() {
    })
 
    app.get('/latest-crops', async(req, res)=>{
-    const cursor = cropsCollection.find().sort({posted_date: -1}).limit(6);
+    const cursor = cropsCollection.find().sort({_id: -1}).limit(6);
     const result = await cursor.toArray();
     res.send(result);
    })
@@ -53,6 +54,17 @@ async function run() {
     res.send(result);
    })
 
+   app.post('/register-user', async(req, res)=>{
+    const newUser = req.body;
+    const result = await usersCollection.insertOne(newUser);
+    res.send(result);
+   })
+   
+   app.post('/crops', async(req, res)=>{
+    const newCrop = req.body;
+    const result = await cropsCollection.insertOne(newCrop);
+    res.send(result);
+   })
    
 
     // Send a ping to confirm a successful connection
