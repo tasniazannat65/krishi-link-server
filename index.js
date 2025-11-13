@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const admin = require("firebase-admin");
 require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 5000;
@@ -19,9 +20,41 @@ const client = new MongoClient(uri, {
 });
 
 
+
+const serviceAccount = require("./fasal-bridge-firebase-admin-key.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
+
 app.get('/', (req, res)=>{
     res.send('fasal-bridge server is running successfully');
 })
+
+
+const verifyFirebaseToken = async(req, res, next)=>{
+  const authorization = req.headers.authorization;
+  
+
+  
+  if(!authorization){
+    return res.status(401).send({
+      message: 'Unauthorized access.'
+    })
+  }
+  const token = authorization.split(' ')[1]
+  try{
+    await admin.auth().verifyIdToken(token)
+    next()
+  }
+  catch(error){
+    res.status(401).send({
+      message: 'Unauthorized access.'
+    })
+
+  }
+}
 
 async function run() {
   try {
@@ -65,6 +98,39 @@ async function run() {
     const result = await cropsCollection.insertOne(newCrop);
     res.send(result);
    })
+
+   app.get('/crops/:id', verifyFirebaseToken, async(req, res)=>{
+    const id = req.params.id;
+    const query = {_id: new ObjectId(id)};
+    const result = await cropsCollection.findOne(query);
+    res.send(result);
+   })
+
+   app.get('/my-posts', verifyFirebaseToken, async(req, res)=>{
+    const email = req.query.email;
+    const result = await cropsCollection.find({"owner.ownerEmail": email}).toArray();
+    res.send(result);
+   })
+
+   app.put('/crops/:id', verifyFirebaseToken, async(req, res)=>{
+    const updatedCrops = req.body;
+    const id = req.params.id;
+    const query = {_id: new ObjectId(id)};
+    const update = {
+      $set: updatedCrops
+    }
+    const result = await cropsCollection.updateOne(query, update);
+    res.send(result);
+   })
+
+   app.delete('/crops/:id', verifyFirebaseToken, async(req, res)=>{
+    const id = req.params.id;
+    const query = {_id: new ObjectId(id)};
+    const result = await cropsCollection.deleteOne(query);
+    res.send(result);
+   })
+
+   
    
 
     // Send a ping to confirm a successful connection
