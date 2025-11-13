@@ -130,6 +130,27 @@ async function run() {
     res.send(result);
    })
 
+   app.put('/users/:id', verifyFirebaseToken, async(req, res)=>{
+    const updateUserProfile = req.body;
+
+    const id = req.params.id;
+    const query = {_id: new ObjectId(id)}
+    const update = {
+      $set: updateUserProfile
+    }
+
+
+    const result = await usersCollection.updateOne(query, update);
+    res.send(result);
+   })
+
+
+    app.get('/users', verifyFirebaseToken, async(req, res)=>{
+    const email = req.query.email;
+    const result = await usersCollection.findOne({email: email});
+    res.send(result);
+   })
+
    
    
 
