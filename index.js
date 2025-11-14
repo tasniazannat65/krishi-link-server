@@ -82,7 +82,7 @@ async function run() {
    })
 
    app.get('/hero-slider', async(req, res)=>{
-    const cursor = cropsCollection.find();
+    const cursor = cropsCollection.find().sort({_id: 1}).limit(6);
     const result = await cursor.toArray();
     res.send(result);
    })
@@ -150,6 +150,45 @@ async function run() {
     const result = await usersCollection.findOne({email: email});
     res.send(result);
    })
+
+   app.post('/crops/:id/interest', verifyFirebaseToken, async(req, res)=>{
+    const id = req.params.id;
+    const interestedData = req.body;
+    const interestId = new ObjectId();
+    const newInterest = {_id: interestId, ...interestedData};
+    const result = await cropsCollection.updateOne(
+      {_id: new ObjectId(id)},
+      {$push: {interests: newInterest}}
+    )
+    res.send(result);
+   })
+
+   app.put('/crops/:id/interest/:interestId', verifyFirebaseToken, async(req, res)=>{
+    const {id, interestId} = req.params;
+    const {status} = req.body;
+    const crop = await cropsCollection.findOne({_id: new ObjectId(id)});
+    const interestData = crop.interests.find(interest=>interest._id.toString() === interestId);
+    const updateInterest = {'interests.$.status': status};
+    if(status === 'accepted'){
+      const newQuantity = crop.quantity - interestData.quantity;
+      updateInterest.quantity = newQuantity >= 0 ? newQuantity : 0;
+    }
+
+    const result = await cropsCollection.updateOne({
+      _id: new ObjectId(id), 'interests._id': new ObjectId(interestId)},
+     {$set: updateInterest}
+    )
+    res.send(result);
+
+   })
+
+   app.get('/my-interests', verifyFirebaseToken, async(req, res)=>{
+    const userEmail = req.query.email;
+    const result = await cropsCollection.find({"interests.userEmail": userEmail}).toArray();
+    res.send(result);
+   })
+
+
 
    
    
