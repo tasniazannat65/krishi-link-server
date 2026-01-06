@@ -33,53 +33,85 @@ app.get('/', (req, res)=>{
 })
 
 
+
+
+
 const verifyFirebaseToken = async(req, res, next)=>{
   const authorization = req.headers.authorization;
   
 
   
-  if(!authorization){
-    return res.status(401).send({
-      message: 'Unauthorized access.'
-    })
+  if(!authorization || !authorization.startsWith('Bearer')){
+    req.user = null;
+   return next();
   }
   const token = authorization.split(' ')[1]
+  if(!token || token === 'undefined'){
+    req.user = null;
+    return next();
+  }
   try{
-    await admin.auth().verifyIdToken(token)
-    next()
+    const decoded = await admin.auth().verifyIdToken(token);
+    req.user = decoded;
+    next();
   }
   catch(error){
-    res.status(401).send({
-      message: 'Unauthorized access.'
-    })
+   req.user = null;
+   next();
 
   }
 }
 
+
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
 
     const db = client.db('fasalbridge_db');
     const cropsCollection = db.collection('crops');
     const usersCollection = db.collection('users');
-   app.get('/crops', async(req, res)=>{
-    const cursor = cropsCollection.find();
-    const result = await cursor.toArray();
-    res.send(result);
+    
+const verifyAdmin = async (req, res, next) => {
+  const email = req.user.email;
+  const user = await usersCollection.findOne({email});
+  if(user?.role !== 'admin'){
+    return res.status(403).send({message: 'Forbidden access'})
+  }
+  next();
+}
+
+
+
+    app.get('/crops', async(req, res)=>{
+          const search = req.query.search || '';
+const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 8;
+    const skip = (page -1) * limit;
+     const query =  {
+      name: {$regex: search, $options: 'i'}
+    } ;
+    const total = await cropsCollection.countDocuments(query);
+
+
+      const crops = await cropsCollection.find(query).skip(skip).limit(limit).toArray();
+    res.send({
+      crops,
+      total,
+      page,
+      totalPages: Math.ceil(total /limit)
+    });
    })
 
    app.get('/latest-crops', async(req, res)=>{
-    const cursor = cropsCollection.find().sort({_id: -1}).limit(6);
+    const cursor = cropsCollection.find().sort({_id: -1}).limit(8);
     const result = await cursor.toArray();
     res.send(result);
    })
 
-   app.get('/search', async(req, res)=>{
-    const search_text = req.query.search;
-    const result = await cropsCollection.find({name: {$regex: search_text, $options: 'i'}}).toArray();
-    res.send(result);
-   })
+
+  
+
+   
 
    app.get('/hero-slider', async(req, res)=>{
     const cursor = cropsCollection.find().sort({_id: 1}).limit(6);
@@ -88,7 +120,18 @@ async function run() {
    })
 
    app.post('/register-user', async(req, res)=>{
-    const newUser = req.body;
+    const user = req.body;
+    const existingUser = await usersCollection.findOne({email: user.email});
+    if(existingUser){
+      return res.send({
+        message: 'User already exists'
+      })
+    }
+    const newUser = {
+      ...user,
+      role: 'user',
+      createdAt: new Date()
+    }
     const result = await usersCollection.insertOne(newUser);
     res.send(result);
    })
@@ -99,35 +142,43 @@ async function run() {
     res.send(result);
    })
 
-   app.get('/crops/:id', verifyFirebaseToken, async(req, res)=>{
+   app.get('/crops/:id',  async(req, res)=>{
     const id = req.params.id;
     const query = {_id: new ObjectId(id)};
     const result = await cropsCollection.findOne(query);
     res.send(result);
    })
 
-   app.get('/my-posts', verifyFirebaseToken, async(req, res)=>{
-    const email = req.query.email;
-    const result = await cropsCollection.find({"owner.ownerEmail": email}).toArray();
-    res.send(result);
-   })
+  //  app.get('/my-posts', verifyFirebaseToken, async(req, res)=>{
+  //   const email = req.query.email;
+  //   const result = await cropsCollection.find({"owner.ownerEmail": email}).toArray();
+  //   res.send(result);
+  //  })
 
-   app.put('/crops/:id', verifyFirebaseToken, async(req, res)=>{
-    const updatedCrops = req.body;
-    const id = req.params.id;
-    const query = {_id: new ObjectId(id)};
-    const update = {
-      $set: updatedCrops
+  //  app.put('/crops/:id', verifyFirebaseToken, async(req, res)=>{
+  //   const updatedCrops = req.body;
+  //   const id = req.params.id;
+  //   const query = {_id: new ObjectId(id)};
+  //   const update = {
+  //     $set: updatedCrops
+  //   }
+  //   const result = await cropsCollection.updateOne(query, update);
+  //   res.send(result);
+  //  })
+
+  //  app.delete('/crops/:id', verifyFirebaseToken, async(req, res)=>{
+  //   const id = req.params.id;
+  //   const query = {_id: new ObjectId(id)};
+  //   const result = await cropsCollection.deleteOne(query);
+  //   res.send(result);
+  //  })
+   app.get('/users/role/:email', verifyFirebaseToken, async(req, res)=> {
+    const email = req.params.email;
+    if(req.user.email !== email){
+      return res.status(403).send({message: 'Forbidden Access'})
     }
-    const result = await cropsCollection.updateOne(query, update);
-    res.send(result);
-   })
-
-   app.delete('/crops/:id', verifyFirebaseToken, async(req, res)=>{
-    const id = req.params.id;
-    const query = {_id: new ObjectId(id)};
-    const result = await cropsCollection.deleteOne(query);
-    res.send(result);
+    const user = await usersCollection.findOne({email});
+    res.send({role: user?.role});
    })
 
    app.put('/users/:id', verifyFirebaseToken, async(req, res)=>{
@@ -194,7 +245,7 @@ async function run() {
    
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
