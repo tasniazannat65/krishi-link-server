@@ -87,13 +87,32 @@ const verifyAdmin = async (req, res, next) => {
 const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 8;
     const skip = (page -1) * limit;
+    const type = req.query.type;
+    const sortBy = req.query.sortBy || 'newest';
+    const order = req.query.order === 'asc' ? 1 : -1;
      const query =  {
       name: {$regex: search, $options: 'i'}
     } ;
+
+    if(type){
+      query.type = type;
+    }
+
+    let sortQuery = {};
+    if(sortBy === 'price'){
+      sortQuery = {pricePerUnit: order};
+    }else if(sortBy === 'name'){
+      sortQuery = {name: order};
+    }else if(sortBy === 'newest'){
+      sortQuery = {_id: -1};
+
+    }else {
+      sortQuery = {_id: 1};
+    }
     const total = await cropsCollection.countDocuments(query);
 
 
-      const crops = await cropsCollection.find(query).skip(skip).limit(limit).toArray();
+      const crops = await cropsCollection.find(query).sort(sortQuery).skip(skip).limit(limit).toArray();
     res.send({
       crops,
       total,
@@ -149,29 +168,29 @@ const page = parseInt(req.query.page) || 1;
     res.send(result);
    })
 
-  //  app.get('/my-posts', verifyFirebaseToken, async(req, res)=>{
-  //   const email = req.query.email;
-  //   const result = await cropsCollection.find({"owner.ownerEmail": email}).toArray();
-  //   res.send(result);
-  //  })
+   app.get('/my-posts', verifyFirebaseToken, async(req, res)=>{
+    const email = req.query.email;
+    const result = await cropsCollection.find({"owner.ownerEmail": email}).toArray();
+    res.send(result);
+   })
 
-  //  app.put('/crops/:id', verifyFirebaseToken, async(req, res)=>{
-  //   const updatedCrops = req.body;
-  //   const id = req.params.id;
-  //   const query = {_id: new ObjectId(id)};
-  //   const update = {
-  //     $set: updatedCrops
-  //   }
-  //   const result = await cropsCollection.updateOne(query, update);
-  //   res.send(result);
-  //  })
+   app.put('/crops/:id', verifyFirebaseToken, async(req, res)=>{
+    const updatedCrops = req.body;
+    const id = req.params.id;
+    const query = {_id: new ObjectId(id)};
+    const update = {
+      $set: updatedCrops
+    }
+    const result = await cropsCollection.updateOne(query, update);
+    res.send(result);
+   })
 
-  //  app.delete('/crops/:id', verifyFirebaseToken, async(req, res)=>{
-  //   const id = req.params.id;
-  //   const query = {_id: new ObjectId(id)};
-  //   const result = await cropsCollection.deleteOne(query);
-  //   res.send(result);
-  //  })
+   app.delete('/crops/:id', verifyFirebaseToken, async(req, res)=>{
+    const id = req.params.id;
+    const query = {_id: new ObjectId(id)};
+    const result = await cropsCollection.deleteOne(query);
+    res.send(result);
+   })
    app.get('/users/role/:email', verifyFirebaseToken, async(req, res)=> {
     const email = req.params.email;
     if(req.user.email !== email){
