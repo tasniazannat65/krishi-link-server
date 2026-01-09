@@ -170,8 +170,30 @@ const page = parseInt(req.query.page) || 1;
 
    app.get('/dashboard/my-posts', verifyFirebaseToken, async(req, res)=>{
     const email = req.query.email;
-    const result = await cropsCollection.find({"owner.ownerEmail": email}).toArray();
-    res.send(result);
+    const search = req.query.search || '';
+    const sortBy = req.query.sortBy || 'name';
+    const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 5;
+    if(!email){
+      return res.status(400).send({message: 'Email is required'});
+    }
+    const query = {
+      'owner.ownerEmail': email,
+      $or: [
+        {name: {$reges: search, $options: 'i'}},
+        {location: {$regex: search, $options: 'i'}}
+      ]
+    };
+    const skip = (page - 1) * limit;
+    const total = await cropsCollection.countDocuments(query);
+    const crops = await cropsCollection.find(query).sort({[sortBy]: sortOrder}).skip(skip).limit(limit).toArray();
+    res.send({
+      total,
+      page,
+      limit,
+      data: crops
+    });
    })
 
    app.put('/crops/:id', verifyFirebaseToken, async(req, res)=>{
