@@ -155,7 +155,7 @@ const page = parseInt(req.query.page) || 1;
     res.send(result);
    })
    
-   app.post('/crops', async(req, res)=>{
+   app.post('/dashboard/crops', async(req, res)=>{
     const newCrop = req.body;
     const result = await cropsCollection.insertOne(newCrop);
     res.send(result);
@@ -168,7 +168,7 @@ const page = parseInt(req.query.page) || 1;
     res.send(result);
    })
 
-   app.get('/my-posts', verifyFirebaseToken, async(req, res)=>{
+   app.get('/dashboard/my-posts', verifyFirebaseToken, async(req, res)=>{
     const email = req.query.email;
     const result = await cropsCollection.find({"owner.ownerEmail": email}).toArray();
     res.send(result);
@@ -252,7 +252,7 @@ const page = parseInt(req.query.page) || 1;
 
    })
 
-   app.get('/my-interests', verifyFirebaseToken, async(req, res)=>{
+   app.get('/dashboard/my-interests', verifyFirebaseToken, async(req, res)=>{
     const userEmail = req.query.email;
     const result = await cropsCollection.find({"interests.userEmail": userEmail}).toArray();
     res.send(result);
