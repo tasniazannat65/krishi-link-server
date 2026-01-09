@@ -41,9 +41,8 @@ const verifyFirebaseToken = async(req, res, next)=>{
   
 
   
-  if(!authorization || !authorization.startsWith('Bearer')){
-    req.user = null;
-   return next();
+  if(!authorization){
+   return res.status(401).send({message: 'Unauthorized'});
   }
   const token = authorization.split(' ')[1]
   if(!token || token === 'undefined'){
@@ -181,7 +180,7 @@ const page = parseInt(req.query.page) || 1;
     const query = {
       'owner.ownerEmail': email,
       $or: [
-        {name: {$reges: search, $options: 'i'}},
+        {name: {$regex: search, $options: 'i'}},
         {location: {$regex: search, $options: 'i'}}
       ]
     };
